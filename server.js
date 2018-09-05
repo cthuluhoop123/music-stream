@@ -64,6 +64,18 @@ app.get('/play/:song', (req, res) => {
     })
 })
 
+app.get('/songList', (req, res) => {
+    fs.readdir(join(__dirname, '/songs'), (err, files) => {
+        if (err) {
+            res.status(404).json({
+                error: 'An error has occured.'
+            })
+            return
+        }
+        res.json(files)
+    })
+})
+
 app.listen(process.env.PORT, () => {
     console.log(`Listening on ${process.env.PORT}...`)
 })
