@@ -3,6 +3,10 @@ require('dotenv').config()
 const fs = require('fs')
 const { join } = require('path')
 
+const redis = require('redis')
+const redisClient = redis.createClient()
+redisClient.select(6)
+
 const express = require('express')
 const app = express()
 
@@ -18,6 +22,9 @@ app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({
     extended: false
 }))
+
+app.disable('etag')
+app.disable('x-powered-by')
 
 app.get('/play/:song', (req, res) => {
     let song = req.params.song
