@@ -35,7 +35,7 @@ app.get('/play/:song', (req, res) => {
                 return
             }
 
-            res.status(404).json({
+            res.status(500).json({
                 error: 'An error has occured.'
             })
         }
@@ -67,7 +67,7 @@ app.get('/play/:song', (req, res) => {
 app.get('/songList', (req, res) => {
     fs.readdir(join(__dirname, '/songs'), (err, files) => {
         if (err) {
-            res.status(404).json({
+            res.status(500).json({
                 error: 'An error has occured.'
             })
             return
