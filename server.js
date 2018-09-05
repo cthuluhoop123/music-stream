@@ -25,8 +25,8 @@ app.get('/play/:song', (req, res) => {
         res.status(400).end()
         return
     }
-
-    fs.stat(join(__dirname, `/songs/${song}`), (err, stats) => {
+    let path = join(__dirname, `/songs/${song}`)
+    fs.stat(path, (err, stats) => {
         if (err) {
             if (err.errno === -4058) {
                 res.status(404).json({
@@ -44,22 +44,22 @@ app.get('/play/:song', (req, res) => {
         if (range) {
             let requestedRange = range.replace(/bytes=/, '').split('-')
             let start = parseInt(requestedRange[0])
-            let end = parseInt(requestedRange[1] || fileSize)
-            let chunkSize = end - start
-            let file = fs.createReadStream(join(__dirname, `/songs/${song}`), { start, end })
+            let end = parseInt(requestedRange[1] || fileSize - 1)
+            let chunkSize = end - start + 1
+            let file = fs.createReadStream(path, { start, end })
             res.writeHead(206, {
                 'Content-Range': `bytes ${start}-${end}/${fileSize}`,
                 'Accept-Ranges': 'bytes',
                 'Content-Length': chunkSize,
-                'Content-Type': 'video/mp4',
+                'Content-Type': 'audio/mpeg',
             })
             file.pipe(res)
         } else {
             res.writeHead(200, {
                 'Content-Length': fileSize,
-                'Content-Type': 'video/mp4',
+                'Content-Type': 'audio/mpeg',
             })
-            fs.createReadStream(join(__dirname, `/songs/${song}`)).pipe(res)
+            fs.createReadStream(path).pipe(res)
         }
     })
 })
