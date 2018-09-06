@@ -94,10 +94,10 @@ app.get('/playlists', (req, res) => {
                 if (fileStat.isDirectory()) {
                     try {
                         let songs = fs.readdirSync(join(__dirname, `/songs/${files[i]}`)).filter(song => song.endsWith('.mp3'))
-                        for (let b = 0; b < songs.length; b++) {
+                        let buildResponseFromSongs = songs.map(async song => {
                             try {
                                 let reply = await new Promise((resolve, reject) => {
-                                    redisClient.hgetall(`songs:${songs[b]}`, (err, reply) => {
+                                    redisClient.hgetall(`songs:${song}`, (err, reply) => {
                                         if (err) {
                                             reject(err)
                                             return
@@ -106,13 +106,14 @@ app.get('/playlists', (req, res) => {
                                     })
                                 })
                                 playlists.push(Object.assign(reply, {
-                                    name: songs[b],
-                                    url: `/file/${encodeURIComponent(files[i])}/${encodeURIComponent(songs[b])}`,
-                                    cover: `/file/${encodeURIComponent(files[i])}/${encodeURIComponent(songs[b].replace(/.mp3/, '.jpg'))}`,
-                                    lrc: `/file/${encodeURIComponent(files[i])}/${encodeURIComponent(songs[b].replace(/.mp3/, '.lrc'))}`
+                                    name: song,
+                                    url: `/file/${encodeURIComponent(files[i])}/${encodeURIComponent(song)}`,
+                                    cover: `/file/${encodeURIComponent(files[i])}/${encodeURIComponent(song.replace(/.mp3/, '.jpg'))}`,
+                                    lrc: `/file/${encodeURIComponent(files[i])}/${encodeURIComponent(song.replace(/.mp3/, '.lrc'))}`
                                 }))
                             } catch (e) { }
-                        }
+                        })
+                        await Promise.all(buildResponseFromSongs)
                     } catch (e) { }
                 }
             } catch (e) { }
