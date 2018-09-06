@@ -28,53 +28,43 @@ app.disable('x-powered-by')
 
 app.get('/play/:song', (req, res) => {
     let song = req.params.song
-    if (!song) {
+    if (!song || !song.endsWith('.mp3')) {
         res.status(400).end()
         return
     }
+    song = decodeURIComponent(song)
     let path = join(__dirname, `/songs/${song}`)
 
-    fs.readdir(join(__dirname, '/songs'), (err, files) => {
-
-        if (err || !files.includes(song)) {
+    fs.stat(path, (err, stats) => {
+        if (err) {
             res.status(404).json({
-                error: 'Song not found.'
+                error: 'File not found.'
             })
-            return
         }
 
-        fs.stat(path, (err, stats) => {
+        let fileSize = stats.size
+        let range = req.headers.range
 
-            if (err) {
-                res.status(500).json({
-                    error: 'An error has occured.'
-                })
-            }
-
-            let fileSize = stats.size
-            let range = req.headers.range
-
-            if (range) {
-                let requestedRange = range.replace(/bytes=/, '').split('-')
-                let start = parseInt(requestedRange[0])
-                let end = parseInt(requestedRange[1] || fileSize - 1)
-                let chunkSize = end - start + 1
-                let file = fs.createReadStream(path, { start, end })
-                res.writeHead(206, {
-                    'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-                    'Accept-Ranges': 'bytes',
-                    'Content-Length': chunkSize,
-                    'Content-Type': 'audio/mpeg',
-                })
-                file.pipe(res)
-            } else {
-                res.writeHead(200, {
-                    'Content-Length': fileSize,
-                    'Content-Type': 'audio/mpeg',
-                })
-                fs.createReadStream(path).pipe(res)
-            }
-        })
+        if (range) {
+            let requestedRange = range.replace(/bytes=/, '').split('-')
+            let start = parseInt(requestedRange[0])
+            let end = parseInt(requestedRange[1] || fileSize - 1)
+            let chunkSize = end - start + 1
+            let file = fs.createReadStream(path, { start, end })
+            res.writeHead(206, {
+                'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': chunkSize,
+                'Content-Type': 'audio/mpeg',
+            })
+            file.pipe(res)
+        } else {
+            res.writeHead(200, {
+                'Content-Length': fileSize,
+                'Content-Type': 'audio/mpeg',
+            })
+            fs.createReadStream(path).pipe(res)
+        }
     })
 })
 
@@ -87,10 +77,11 @@ app.get('/playlists', (req, res) => {
             return
         }
         let playlists = []
-
+        //loop through all files to look for playlist
         for (let i = 0; i < files.length; i++) {
             try {
                 let fileStat = fs.lstatSync(join(__dirname, `/songs/${files[i]}`))
+                //only want folders
                 if (fileStat.isDirectory()) {
                     try {
                         let songs = fs.readdirSync(join(__dirname, `/songs/${files[i]}`)).filter(song => song.endsWith('.mp3'))
@@ -107,9 +98,9 @@ app.get('/playlists', (req, res) => {
                                 })
                                 playlists.push(Object.assign(reply, {
                                     name: song,
-                                    url: `/file/${encodeURIComponent(files[i])}/${encodeURIComponent(song)}`,
-                                    cover: `/file/${encodeURIComponent(files[i])}/${encodeURIComponent(song.replace(/.mp3/, '.jpg'))}`,
-                                    lrc: `/file/${encodeURIComponent(files[i])}/${encodeURIComponent(song.replace(/.mp3/, '.lrc'))}`
+                                    url: `./play/${encodeURIComponent(files[i])}/${encodeURIComponent(song)}`,
+                                    cover: `./file/${encodeURIComponent(files[i])}/${encodeURIComponent(song.replace(/.mp3/, '.jpg'))}`,
+                                    lrc: `./file/${encodeURIComponent(files[i])}/${encodeURIComponent(song.replace(/.mp3/, '.lrc'))}`
                                 }))
                             } catch (e) { }
                         })
