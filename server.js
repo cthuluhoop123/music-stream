@@ -5,7 +5,7 @@ const { join } = require('path')
 
 const redis = require('redis')
 const redisClient = redis.createClient()
-redisClient.select(6)
+redisClient.select(process.env.DATABASE)
 
 const express = require('express')
 const app = express()
@@ -19,10 +19,10 @@ app.use(helmet())
 app.use(cors())
 app.use(compression())
 app.use(bodyParser.json())
+app.use('/file', express.static('songs'))
 app.use(bodyParser.urlencoded({
     extended: false
 }))
-
 app.disable('etag')
 app.disable('x-powered-by')
 
@@ -78,18 +78,50 @@ app.get('/play/:song', (req, res) => {
     })
 })
 
-app.get('/songList', (req, res) => {
-    fs.readdir(join(__dirname, '/songs'), (err, files) => {
+app.get('/playlists', (req, res) => {
+    fs.readdir(join(__dirname, '/songs'), async (err, files) => {
         if (err) {
             res.status(500).json({
                 error: 'An error has occured.'
             })
             return
         }
-        res.status(200).json(files)
+        let playlists = []
+
+        for (let i = 0; i < files.length; i++) {
+            try {
+                let fileStat = fs.lstatSync(join(__dirname, `/songs/${files[i]}`))
+                if (fileStat.isDirectory()) {
+                    try {
+                        let songs = fs.readdirSync(join(__dirname, `/songs/${files[i]}`)).filter(song => song.endsWith('.mp3'))
+                        for (let b = 0; b < songs.length; b++) {
+                            try {
+                                let reply = await new Promise((resolve, reject) => {
+                                    redisClient.hgetall(`songs:${songs[b]}`, (err, reply) => {
+                                        if (err) {
+                                            reject(err)
+                                            return
+                                        }
+                                        resolve(reply)
+                                    })
+                                })
+                                playlists.push(Object.assign(reply, {
+                                    name: songs[b],
+                                    url: `/file/${encodeURIComponent(files[i])}/${encodeURIComponent(songs[b])}`,
+                                    cover: `/file/${encodeURIComponent(files[i])}/${encodeURIComponent(songs[b].replace(/.mp3/, '.jpg'))}`,
+                                    lrc: `/file/${encodeURIComponent(files[i])}/${encodeURIComponent(songs[b].replace(/.mp3/, '.lrc'))}`
+                                }))
+                            } catch (e) { }
+                        }
+                    } catch (e) { }
+                }
+            } catch (e) { }
+        }
+        res.status(200).json(playlists)
     })
 })
 
 app.listen(process.env.PORT, () => {
     console.log(`Listening on ${process.env.PORT}...`)
+    console.log(`Selected DB ${process.env.DATABASE}`)
 })
